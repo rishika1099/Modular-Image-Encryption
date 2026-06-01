@@ -126,12 +126,19 @@ python test_core.py
 | NPCR | 99.63% | ~99.6 |
 | UACI | 33.47% | ~33.4 |
 
+## Blog
+
+For a narrative walkthrough of the techniques, the metrics, and why the
+decrypted image stays as noise until the very last step, see
+[docs/blog.md](docs/blog.md).
+
 ## Files
 
 - `crypto_core.py`: pipeline and all swappable primitives
 - `app.py`: Streamlit frontend
 - `test_core.py`: round-trip, key-sensitivity, and metrics tests
 - `requirements.txt`: dependencies
+- `docs/blog.md`: long-form writeup
 
 ## License
 
