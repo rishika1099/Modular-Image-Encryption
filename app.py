@@ -80,7 +80,7 @@ def decrypt_trace(enc, key, confusion, diffusion, rounds):
 # ---------------- sidebar controls ----------------
 with st.sidebar:
     st.header("Settings")
-    key = st.text_input("Secret key", value="course-project-2026", type="password")
+    key = st.text_input("Secret key", value="wheresmyfoodkaren", type="password")
     confusion = st.selectbox("Confusion (permutation)", list(cc.CONFUSION),
                              help="perm = global pixel shuffle · spectral = graph-Fiedler block order")
     diffusion = st.selectbox("Diffusion (value mixing)", list(cc.DIFFUSION), index=2,
