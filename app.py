@@ -6,8 +6,9 @@ Run in Colab:  see the commands your assistant gave you (localtunnel).
 import io
 import numpy as np
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 
 import crypto_core as cc
 
@@ -42,6 +43,43 @@ def hist_fig(a, title):
     fig.tight_layout()
     return fig
 
+# ---------------- default meme image ----------------
+def make_default_meme(w=256, h=256):
+    """Procedurally generated meme (original art, no copyright) used as the
+    default image. Has gradients + edges + text, so it's also a good demo for
+    confusion/diffusion (lots of structure to scramble)."""
+    yy, xx = np.mgrid[0:h, 0:w].astype(float)
+    r = (np.sin(xx / 26) * 0.5 + 0.5) * 255
+    g = (yy / h) * 255
+    b = (np.cos((xx + yy) / 34) * 0.5 + 0.5) * 255
+    im = Image.fromarray(np.stack([r, g, b], -1).astype(np.uint8))
+    d = ImageDraw.Draw(im)
+    # a little meme face for structure
+    d.ellipse([w * .26, h * .30, w * .74, h * .72], fill=(255, 205, 40), outline=(40, 30, 0), width=3)
+    d.ellipse([w * .37, h * .42, w * .45, h * .50], fill=(30, 30, 30))
+    d.ellipse([w * .55, h * .42, w * .63, h * .50], fill=(30, 30, 30))
+    d.arc([w * .38, h * .50, w * .62, h * .66], 200, 340, fill=(30, 30, 30), width=5)
+
+    fp = font_manager.findfont("DejaVu Sans:bold")   # always resolves (Colab too)
+
+    def fit(text, max_w, start=40):
+        s = start
+        while s > 10 and d.textlength(text, font=ImageFont.truetype(fp, s)) > max_w:
+            s -= 2
+        return ImageFont.truetype(fp, s)
+
+    def caption(text, top):
+        f = fit(text, w * 0.92)
+        tw = d.textlength(text, font=f)
+        bb = f.getbbox(text); th = bb[3] - bb[1]
+        y = 6 if top else h - th - 12
+        d.text(((w - tw) / 2, y), text, font=f, fill="white",
+               stroke_width=max(2, f.size // 10), stroke_fill="black")
+
+    caption("ONE DOES NOT SIMPLY", top=True)
+    caption("DECRYPT WITHOUT THE KEY", top=False)
+    return np.array(im, dtype=np.uint8)
+
 # ---------------- step-by-step trace ----------------
 def encrypt_trace(img, key, confusion, diffusion, rounds):
     """Run the same pipeline as cc.encrypt, but snapshot the flat array after
@@ -73,10 +111,8 @@ with st.sidebar:
 
 # ---------------- load image ----------------
 if up is None:
-    yy, xx = np.mgrid[0:128, 0:128]
-    base = ((xx // 8 + yy // 8) % 2 * 200 + 30).astype(np.uint8)
-    img = np.stack([base, np.roll(base, 10), np.roll(base, 20)], -1)
-    st.info("No upload — using a built-in test pattern. Upload an image in the sidebar.")
+    img = make_default_meme()
+    st.info("No upload — using the default meme 😎. Upload your own image in the sidebar.")
 else:
     pil = Image.open(up).convert("RGB")
     pil.thumbnail((512, 512))           # keep INN fast in the demo
