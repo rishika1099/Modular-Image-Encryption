@@ -75,9 +75,13 @@ with st.sidebar:
 
 # ---------------- load image ----------------
 def load_default_image():
-    """Load assets/default.* as the default image. No fallback: if it's not
-    there, the app asks for an upload instead."""
-    for path in sorted(glob.glob(os.path.join("assets", "default.*"))):
+    """Load the default image from assets/. Prefers assets/default.*, else
+    uses the first image file found. No fallback: if assets/ has no usable
+    image, the app asks for an upload instead."""
+    exts = ("jpg", "jpeg", "png", "bmp")
+    preferred = [p for e in exts for p in glob.glob(os.path.join("assets", f"default.{e}"))]
+    others = sorted(p for e in exts for p in glob.glob(os.path.join("assets", f"*.{e}")))
+    for path in preferred + others:
         try:
             pil = Image.open(path).convert("RGB")
             pil.thumbnail((512, 512))
@@ -89,7 +93,7 @@ def load_default_image():
 if up is None:
     img, default_name = load_default_image()
     if img is None:
-        st.warning("No default image found at `assets/default.jpg`. "
+        st.warning("No image found in `assets/`. "
                    "Save one there, or upload an image in the sidebar.")
         st.stop()
     st.info(f"No upload — using default `{default_name}` 😎. Upload your own in the sidebar.")
