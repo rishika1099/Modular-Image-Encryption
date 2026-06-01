@@ -16,10 +16,20 @@ import crypto_core as cc
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(APP_DIR, "assets")
 
-st.set_page_config(page_title="Modular Image Crypto", layout="wide")
-st.title("🔐 Modular Image Encryption — Confusion × Diffusion")
+def _favicon():
+    """Use the bundled image as the browser/tab favicon, else a lock emoji."""
+    for ext in ("jpg", "jpeg", "png", "bmp", "JPG", "JPEG", "PNG", "BMP"):
+        for path in glob.glob(os.path.join(ASSETS_DIR, f"*.{ext}")):
+            try:
+                return Image.open(path)
+            except Exception:
+                continue
+    return "🔐"
+
+st.set_page_config(page_title="Modular Image Crypto", page_icon=_favicon(), layout="wide")
+st.title("🔐 Modular Image Encryption: Confusion x Diffusion")
 st.caption("Swap primitives, encrypt/decrypt losslessly, and read the security metrics. "
-           "Research/coursework tool — not a vetted cipher.")
+           "Research/coursework tool, not a vetted cipher.")
 
 # ---------------- metrics ----------------
 def entropy(a):
@@ -63,6 +73,20 @@ def encrypt_trace(img, key, confusion, diffusion, rounds):
         steps.append((last, flat.copy()))
     return shape, steps
 
+def decrypt_trace(enc, key, confusion, diffusion, rounds):
+    """Reverse of encrypt_trace: snapshot each inverse stage so the UI can show
+    the noise being unwound back to the original. Matches cc.decrypt exactly."""
+    shape = enc.shape
+    flat = enc.reshape(-1).astype(np.uint8)
+    steps = [("Encrypted", flat.copy())]
+    for r in reversed(range(rounds)):
+        flat = cc._diffuse(flat, key, diffusion, True, r)
+        steps.append((f"Round {r + 1} · un-diffusion ({diffusion})", flat.copy()))
+        flat = cc._confuse(flat, shape, key, confusion, True, r)
+        last = "Decrypted (final)" if r == 0 else f"Round {r + 1} · un-confusion ({confusion})"
+        steps.append((last, flat.copy()))
+    return shape, steps
+
 # ---------------- sidebar controls ----------------
 with st.sidebar:
     st.header("Settings")
@@ -99,7 +123,7 @@ if up is None:
         st.warning("No image found in `assets/`. "
                    "Save one there, or upload an image in the sidebar.")
         st.stop()
-    st.info(f"No upload — using default `{default_name}` 😎. Upload your own in the sidebar.")
+    st.info(f"No upload: using default `{default_name}` 😎. Upload your own in the sidebar.")
 else:
     pil = Image.open(up).convert("RGB")
     pil.thumbnail((512, 512))           # keep INN fast in the demo
@@ -121,18 +145,27 @@ else:
     st.error("❌ Recovery mismatch")
 
 # ---------------- step-by-step gallery ----------------
-if show_steps:
-    st.subheader("Step-by-step pipeline")
-    st.caption("Confusion permutes pixel **positions** — the histogram is unchanged but the "
-               "pattern scrambles. Diffusion changes pixel **values** — the histogram flattens "
-               "and entropy climbs toward 8.0. Watch both numbers per step.")
-    shape, steps = encrypt_trace(img, key, confusion, diffusion, rounds)
-    ncol = 4
+def render_gallery(shape, steps, ncol=4):
     for i in range(0, len(steps), ncol):
         cols = st.columns(ncol)
         for col, (label, fl) in zip(cols, steps[i:i + ncol]):
             col.image(fl.reshape(shape), caption=label, use_container_width=True)
             col.caption(f"entropy {entropy(fl):.3f}  ·  adj-corr {corr_adjacent(fl):+.3f}")
+
+if show_steps:
+    st.subheader("Encryption, step by step")
+    st.caption("Confusion permutes pixel **positions**, so the histogram is unchanged but the "
+               "pattern scrambles. Diffusion changes pixel **values**, so the histogram flattens "
+               "and entropy climbs toward 8.0. Watch both numbers per step.")
+    eshape, esteps = encrypt_trace(img, key, confusion, diffusion, rounds)
+    render_gallery(eshape, esteps)
+
+    st.subheader("Decryption, step by step")
+    st.caption("The same stages run in reverse with the same key: un-diffusion restores the "
+               "original values, un-confusion puts pixels back in place, until the image returns "
+               "exactly. Entropy falls back and the original structure reappears.")
+    dshape, dsteps = decrypt_trace(enc, key, confusion, diffusion, rounds)
+    render_gallery(dshape, dsteps)
 
 # ---------------- metrics ----------------
 st.subheader("Security metrics")

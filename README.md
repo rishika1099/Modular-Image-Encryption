@@ -1,12 +1,12 @@
-# Modular Image Encryption — Confusion × Diffusion
+# Modular Image Encryption: Confusion x Diffusion
 
 A modular image-encryption pipeline with swappable **confusion** (permutation)
 and **diffusion** (value-mixing) primitives, a Streamlit frontend, and a
 security-metrics harness. Built as a comparative framework for studying novel
 image-encryption building blocks.
 
-> ⚠️ **Research / coursework tool — not a cryptographically vetted cipher.**
-> Use it to study confusion–diffusion behaviour, not to protect real secrets.
+> ⚠️ **Research / coursework tool, not a cryptographically vetted cipher.**
+> Use it to study confusion/diffusion behaviour, not to protect real secrets.
 
 ## Modules
 
@@ -45,10 +45,10 @@ python test_core.py
 
 ## Files
 
-- `crypto_core.py` — pipeline and all swappable primitives
-- `app.py` — Streamlit frontend
-- `test_core.py` — round-trip, key-sensitivity, and metrics tests
-- `requirements.txt` — dependencies
+- `crypto_core.py`: pipeline and all swappable primitives
+- `app.py`: Streamlit frontend
+- `test_core.py`: round-trip, key-sensitivity, and metrics tests
+- `requirements.txt`: dependencies
 
 ## License
 
