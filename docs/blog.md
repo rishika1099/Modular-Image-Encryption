@@ -50,6 +50,8 @@ The interesting design choice is that confusion and diffusion are each a
 and any pairing works. That is what makes it a comparison rather than a single
 algorithm.
 
+![Encryption step by step: the cat dissolves into noise across three rounds of confusion and diffusion](encryption-steps.png)
+
 A note on keys before the modules: every stage derives its own subkey. A label
 like `inn3.2` (meaning the diffusion in round 3, coupling layer 2) is hashed
 together with your secret key using SHA-256, and the result seeds a dedicated
@@ -121,6 +123,18 @@ exactly invertible over bytes. Here is the idea:
 3. Update the other half: `b = (b + t) mod 256`.
 4. Swap the two halves and repeat for several layers.
 
+```mermaid
+flowchart LR
+    X[Byte vector] --> S[Split into halves a and b]
+    S --> A[half a, unchanged this layer]
+    S --> B[half b]
+    A --> T["keyed causal mixer + S-box, yields shift t"]
+    B --> ADD["b = b + t mod 256"]
+    T --> ADD
+    ADD --> SW[swap halves]
+    SW --> R[repeat for next layer]
+```
+
 The magic of coupling networks is that step 2 reads only the half that is not
 being changed. So at decryption time you can recompute the identical `t` and
 subtract it, and the whole thing inverts perfectly, no matter how nonlinear the
@@ -160,6 +174,8 @@ Running `perm` confusion with `inn` diffusion for 3 rounds:
 | NPCR | 99.63% | about 99.6 |
 | UACI | 33.47% | about 33.4 |
 
+![Plaintext histogram is a lumpy hill at entropy 7.443; ciphertext histogram is flat at entropy 7.999](histograms.png)
+
 The cipher histogram goes flat, the correlation collapses from +0.82 to
 essentially nothing, and the differential numbers land right on their ideals.
 The avalanche from the `inn` coupling network is what carries those last two.
@@ -172,6 +188,8 @@ The app shows every intermediate stage, and the decryption gallery taught me
 something I did not expect. None of the steps look even slightly like the cat
 until the very last one. It is full rainbow static, then full static, then
 suddenly a cat.
+
+![Decryption step by step: full noise until the very last step, when the cat snaps back](decryption-steps.png)
 
 That is not a bug, it is the goal. The image is only recognizable when the
 values **and** the positions are simultaneously correct. Decryption fixes those
