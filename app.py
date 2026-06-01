@@ -16,17 +16,7 @@ import crypto_core as cc
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(APP_DIR, "assets")
 
-def _favicon():
-    """Use the bundled image as the browser/tab favicon, else a lock emoji."""
-    for ext in ("jpg", "jpeg", "png", "bmp", "JPG", "JPEG", "PNG", "BMP"):
-        for path in glob.glob(os.path.join(ASSETS_DIR, f"*.{ext}")):
-            try:
-                return Image.open(path)
-            except Exception:
-                continue
-    return "🔐"
-
-st.set_page_config(page_title="Modular Image Crypto", page_icon=_favicon(), layout="wide")
+st.set_page_config(page_title="Modular Image Crypto", page_icon="🔐", layout="wide")
 st.title("🔐 Modular Image Encryption: Confusion x Diffusion")
 st.caption("Swap primitives, encrypt/decrypt losslessly, and read the security metrics. "
            "Research/coursework tool, not a vetted cipher.")
