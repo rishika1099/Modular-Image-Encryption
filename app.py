@@ -42,6 +42,22 @@ def hist_fig(a, title):
     fig.tight_layout()
     return fig
 
+# ---------------- step-by-step trace ----------------
+def encrypt_trace(img, key, confusion, diffusion, rounds):
+    """Run the same pipeline as cc.encrypt, but snapshot the flat array after
+    every confusion and diffusion sub-stage so the UI can show each step.
+    Uses the core's stage functions, so behaviour matches cc.encrypt exactly."""
+    shape = img.shape
+    flat = img.reshape(-1).astype(np.uint8)
+    steps = [("Original", flat.copy())]
+    for r in range(rounds):
+        flat = cc._confuse(flat, shape, key, confusion, False, r)
+        steps.append((f"Round {r + 1} · confusion ({confusion})", flat.copy()))
+        flat = cc._diffuse(flat, key, diffusion, False, r)
+        last = "Encrypted (final)" if r == rounds - 1 else f"Round {r + 1} · diffusion ({diffusion})"
+        steps.append((last, flat.copy()))
+    return shape, steps
+
 # ---------------- sidebar controls ----------------
 with st.sidebar:
     st.header("Settings")
@@ -51,6 +67,8 @@ with st.sidebar:
     diffusion = st.selectbox("Diffusion (value mixing)", list(cc.DIFFUSION), index=2,
                              help="xor = keystream · latin = balanced additive · inn = integer coupling net")
     rounds = st.slider("Rounds", 1, 6, 3)
+    show_steps = st.checkbox("Show every step", value=True,
+                             help="Render each confusion/diffusion stage of every round.")
     up = st.file_uploader("Upload image", type=["png", "jpg", "jpeg", "bmp"])
 
 # ---------------- load image ----------------
@@ -74,7 +92,24 @@ c1.image(img, caption="Original", use_container_width=True)
 c2.image(enc, caption="Encrypted", use_container_width=True)
 c3.image(dec, caption="Decrypted", use_container_width=True)
 
-st.success("✅ Decryption is exact (lossless)") if lossless else st.error("❌ Recovery mismatch")
+if lossless:
+    st.success("✅ Decryption is exact (lossless)")
+else:
+    st.error("❌ Recovery mismatch")
+
+# ---------------- step-by-step gallery ----------------
+if show_steps:
+    st.subheader("Step-by-step pipeline")
+    st.caption("Confusion permutes pixel **positions** — the histogram is unchanged but the "
+               "pattern scrambles. Diffusion changes pixel **values** — the histogram flattens "
+               "and entropy climbs toward 8.0. Watch both numbers per step.")
+    shape, steps = encrypt_trace(img, key, confusion, diffusion, rounds)
+    ncol = 4
+    for i in range(0, len(steps), ncol):
+        cols = st.columns(ncol)
+        for col, (label, fl) in zip(cols, steps[i:i + ncol]):
+            col.image(fl.reshape(shape), caption=label, use_container_width=True)
+            col.caption(f"entropy {entropy(fl):.3f}  ·  adj-corr {corr_adjacent(fl):+.3f}")
 
 # ---------------- metrics ----------------
 st.subheader("Security metrics")
