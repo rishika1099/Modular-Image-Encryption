@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 
 import crypto_core as cc
 
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(APP_DIR, "assets")
+
 st.set_page_config(page_title="Modular Image Crypto", layout="wide")
 st.title("🔐 Modular Image Encryption — Confusion × Diffusion")
 st.caption("Swap primitives, encrypt/decrypt losslessly, and read the security metrics. "
@@ -78,9 +81,9 @@ def load_default_image():
     """Load the default image from assets/. Prefers assets/default.*, else
     uses the first image file found. No fallback: if assets/ has no usable
     image, the app asks for an upload instead."""
-    exts = ("jpg", "jpeg", "png", "bmp")
-    preferred = [p for e in exts for p in glob.glob(os.path.join("assets", f"default.{e}"))]
-    others = sorted(p for e in exts for p in glob.glob(os.path.join("assets", f"*.{e}")))
+    exts = ("jpg", "jpeg", "png", "bmp", "JPG", "JPEG", "PNG", "BMP")
+    preferred = [p for e in exts for p in glob.glob(os.path.join(ASSETS_DIR, f"default.{e}"))]
+    others = sorted(p for e in exts for p in glob.glob(os.path.join(ASSETS_DIR, f"*.{e}")))
     for path in preferred + others:
         try:
             pil = Image.open(path).convert("RGB")
