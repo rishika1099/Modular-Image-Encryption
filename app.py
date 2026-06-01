@@ -4,6 +4,8 @@ Run locally:   streamlit run app.py
 Run in Colab:  see the commands your assistant gave you (localtunnel).
 """
 import io
+import os
+import glob
 import numpy as np
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
@@ -110,9 +112,26 @@ with st.sidebar:
     up = st.file_uploader("Upload image", type=["png", "jpg", "jpeg", "bmp"])
 
 # ---------------- load image ----------------
+def load_default_image():
+    """Use assets/default.* as the default image if present, else fall back
+    to a generated meme. Drop your favourite meme at assets/default.jpg."""
+    hits = sorted(glob.glob(os.path.join("assets", "default.*")))
+    for path in hits:
+        try:
+            pil = Image.open(path).convert("RGB")
+            pil.thumbnail((512, 512))
+            return np.array(pil, dtype=np.uint8), os.path.basename(path)
+        except Exception:
+            continue
+    return make_default_meme(), None
+
 if up is None:
-    img = make_default_meme()
-    st.info("No upload — using the default meme 😎. Upload your own image in the sidebar.")
+    img, default_name = load_default_image()
+    if default_name:
+        st.info(f"No upload — using bundled default `{default_name}` 😎. Upload your own in the sidebar.")
+    else:
+        st.info("No upload — using a generated meme 😎. "
+                "Drop an image at `assets/default.jpg` to set your own default.")
 else:
     pil = Image.open(up).convert("RGB")
     pil.thumbnail((512, 512))           # keep INN fast in the demo

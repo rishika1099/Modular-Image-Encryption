@@ -1,0 +1,4 @@
+# Drop your default demo image here as assets/default.jpg (or .png/.jpeg).
+# The app uses it automatically when nothing is uploaded; otherwise it falls
+# back to a generated meme. This file is gitignored by default to avoid
+# committing third-party images to a public repo.

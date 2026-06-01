@@ -6,3 +6,8 @@ log.txt
 !docs/*.png
 .DS_Store
 .venv/
+
+# local default image — keep third-party memes out of the public repo by
+# default. Track only the placeholder; drop your own at assets/default.jpg.
+assets/*
+!assets/.gitkeep
