@@ -1,0 +1,212 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Scrambling a Cat: Modular Image Encryption</title>
+<style>body{max-width:760px;margin:40px auto;font:17px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px;}
+img{max-width:100%;height:auto;}table{border-collapse:collapse;}th,td{border:1px solid #ccc;padding:6px 10px;}
+code{background:#f4f4f4;padding:1px 4px;border-radius:3px;}</style>
+</head><body>
+<h1>Scrambling a Cat: A Tour of Modular Image Encryption</h1>
+<p>I built a small image-encryption playground where you upload a picture, pick
+some building blocks, and watch the image dissolve into noise and come back
+again. My test image, for reasons that will become clear, is a blurry cat
+glaring at an empty food bowl. By the end of this post you will understand
+exactly why that cat turns into static, why the static turns back into a cat,
+and which of the techniques involved is actually pulling its weight.</p>
+<p>This is a comparative framework, not a finished cipher. The point was to take a
+few different ideas for the two halves of a classic cipher, implement them so
+they all plug into the same pipeline, and measure them against each other on
+the same picture.</p>
+<h2>Why images need their own treatment</h2>
+<p>If you encrypt a text file with a weak scheme, the damage is invisible to the
+naked eye. With images it is the opposite: a weak scheme leaves the picture
+recognizable. Neighboring pixels in a natural photo are highly correlated (the
+patch of fur next to a fur pixel is almost certainly more fur), so the data has
+enormous local structure. A good image cipher has to destroy two things at
+once:</p>
+<ol>
+<li>The <strong>structure</strong>: where things are, the edges, the shapes.</li>
+<li>The <strong>statistics</strong>: the fact that some pixel values are far more common than
+   others.</li>
+</ol>
+<p>Claude Shannon named the two tools for this in 1949: <strong>confusion</strong> and
+<strong>diffusion</strong>. Confusion hides the relationship between the key and the
+ciphertext. Diffusion spreads the influence of each input bit across many
+output bits. In image terms I think of them more concretely:</p>
+<ul>
+<li><strong>Confusion</strong> scrambles <em>where</em> pixels are. It permutes positions.</li>
+<li><strong>Diffusion</strong> changes <em>what</em> the pixel values are, and makes each output
+  depend on many inputs.</li>
+</ul>
+<p>The whole pipeline is just these two stages, applied in turn, repeated for a
+few rounds.</p>
+<h2>The pipeline</h2>
+<p>The image is flattened into a single list of bytes. Then, for each round, it
+runs one confusion stage followed by one diffusion stage. After <code>R</code> rounds you
+have the ciphertext. Decryption runs the rounds backward, undoing diffusion and
+then confusion at each step, and you get the exact original image back. Lossless,
+every time, for grayscale, color, and odd sizes.</p>
+<p>The interesting design choice is that confusion and diffusion are each a
+<strong>pluggable slot</strong>. I wrote two confusion modules and three diffusion modules,
+and any pairing works. That is what makes it a comparison rather than a single
+algorithm.</p>
+<p><img alt="Encryption step by step: the cat dissolves into noise across three rounds of confusion and diffusion" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/encryption-steps.png" /></p>
+<p>A note on keys before the modules: every stage derives its own subkey. A label
+like <code>inn3.2</code> (meaning the diffusion in round 3, coupling layer 2) is hashed
+together with your secret key using SHA-256, and the result seeds a dedicated
+random generator for that stage. So one master key fans out into dozens of
+independent stage keys, and nothing is reused between positions or rounds.</p>
+<h2>The confusion modules: scrambling positions</h2>
+<p>Confusion only moves pixels around. It never changes the actual values, so the
+histogram and the global entropy stay exactly the same. What collapses is the
+spatial pattern and the correlation between neighboring pixels.</p>
+<h3>perm: the honest shuffle</h3>
+<p>The baseline. Seed a random generator from the key, generate a full random
+permutation of every pixel index, and reorder the image by it. To decrypt,
+apply the inverse permutation. It is the most thorough scrambler you can ask
+for, because it treats every pixel independently and can send any pixel
+anywhere. Its only shortcoming is conceptual: it knows nothing about the image
+being an image.</p>
+<h3>spectral: scrambling with a sense of geometry</h3>
+<p>This is the more interesting confusion idea. Instead of shuffling individual
+pixels, it shuffles <strong>blocks</strong>. The image is cut into an 8 by 8 grid of tiles.
+Then the key builds a small graph over those 64 tiles (a symmetric matrix of
+random edge weights that depends only on the key, never on the image content).
+From that graph it computes the <strong>Fiedler vector</strong>, the eigenvector tied to the
+second-smallest eigenvalue of the graph Laplacian. The Fiedler vector is the
+classic signal used in spectral clustering to lay out a graph along a line, and
+here it gives a key-dependent ordering of the blocks. The tiles get reshuffled
+into that order, and decryption restores the original order. If the image is
+too small to fill the grid, it quietly falls back to <code>perm</code>.</p>
+<h2>The diffusion modules: changing values</h2>
+<p>Diffusion is where the histogram gets flattened and entropy climbs toward its
+ideal of 8 bits per pixel. It is also where resistance to differential attacks
+lives, which I will measure below.</p>
+<h3>xor: the textbook keystream</h3>
+<p>Generate a key-seeded stream of random bytes as long as the image and XOR it
+into the pixels. XOR is its own inverse, so decryption is the identical
+operation. It flattens the histogram nicely, but it is linear and each byte is
+mixed in isolation, so by itself it gives no avalanche: changing one input
+pixel changes exactly one output pixel.</p>
+<h3>latin: balanced, analyzable, and deliberately weak</h3>
+<p>This one adds a position-dependent shift to each pixel: position <code>i</code> gets
+<code>(a * i + b) mod 256</code>, where <code>a</code> is forced to be odd so the operation is
+reversible modulo 256, and <code>b</code> is a keyed offset. The result is provably
+<strong>balanced</strong>, meaning each output value is equally likely across positions,
+which makes it clean to reason about. But it is still a <strong>linear</strong> function of
+position, so it is the intentionally weak diffusion arm. Having a weak baseline
+matters: the comparison is only meaningful if something loses.</p>
+<h3>inn: the strong contender</h3>
+<p>The centerpiece is an integer coupling network, borrowing the additive-coupling
+trick from RealNVP (a normalizing-flow architecture) and adapting it to be
+exactly invertible over bytes. Here is the idea:</p>
+<ol>
+<li>Split the vector into two halves, <code>a</code> and <code>b</code>.</li>
+<li>Compute a shift <code>t</code> from <code>a</code> using a keyed, <strong>causal, nonlinear</strong> mixer.
+   Each <code>t_i</code> depends on the key and on every earlier value of <code>a</code> through a
+   running accumulator, then passes through a key-seeded 8-bit substitution box.</li>
+<li>Update the other half: <code>b = (b + t) mod 256</code>.</li>
+<li>Swap the two halves and repeat for several layers.</li>
+</ol>
+<p><img alt="One inn coupling layer: split, keyed causal mixer plus S-box, additive update, swap" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/coupling-diagram.png" /></p>
+<p>The magic of coupling networks is that step 2 reads only the half that is not
+being changed. So at decryption time you can recompute the identical <code>t</code> and
+subtract it, and the whole thing inverts perfectly, no matter how nonlinear the
+mixer is. The causal accumulator is what creates real avalanche: flip one early
+pixel and every later output shifts. That property is exactly what the
+differential metrics reward.</p>
+<h2>How do you know it worked?</h2>
+<p>Four numbers, computed on the cat and its ciphertext.</p>
+<ul>
+<li><strong>Entropy</strong> measures how uniform the pixel histogram is. The ideal is 8.0 bits
+  per pixel, meaning every byte value is equally likely and there is no
+  statistical handle to grab. The cat starts at about 7.44.</li>
+<li><strong>Adjacent-pixel correlation</strong> measures how much a pixel predicts its
+  neighbor. Natural images are strongly correlated; the cat sits around +0.82.
+  A good cipher drives this to roughly zero.</li>
+<li><strong>NPCR</strong> (Number of Pixel Change Rate): flip one pixel of the input, encrypt
+  both versions, and count what fraction of output pixels differ. The ideal is
+  about 99.6 percent.</li>
+<li><strong>UACI</strong> (Unified Average Changing Intensity): same setup, but it measures the
+  average <em>intensity</em> of the change, not just whether a change happened. The
+  ideal is about 33.4 percent.</li>
+</ul>
+<p>NPCR and UACI together are the differential-attack story: they say that a tiny
+nudge to the input produces a totally different output, so an attacker cannot
+learn anything by feeding in near-identical images.</p>
+<h2>Results</h2>
+<p>Running <code>perm</code> confusion with <code>inn</code> diffusion for 3 rounds:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Ideal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cipher entropy</td>
+<td>7.997</td>
+<td>8.0</td>
+</tr>
+<tr>
+<td>Adjacent-pixel correlation</td>
+<td>-0.0006</td>
+<td>about 0</td>
+</tr>
+<tr>
+<td>NPCR</td>
+<td>99.63%</td>
+<td>about 99.6</td>
+</tr>
+<tr>
+<td>UACI</td>
+<td>33.47%</td>
+<td>about 33.4</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Plaintext histogram is a lumpy hill at entropy 7.443; ciphertext histogram is flat at entropy 7.999" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/histograms.png" /></p>
+<p>The cipher histogram goes flat, the correlation collapses from +0.82 to
+essentially nothing, and the differential numbers land right on their ideals.
+The avalanche from the <code>inn</code> coupling network is what carries those last two.
+If you swap <code>inn</code> for the linear <code>latin</code> module, the differential numbers
+degrade noticeably, which is the comparison the project was built to show.</p>
+<h2>The most satisfying part: watching it decrypt</h2>
+<p>The app shows every intermediate stage, and the decryption gallery taught me
+something I did not expect. None of the steps look even slightly like the cat
+until the very last one. It is full rainbow static, then full static, then
+suddenly a cat.</p>
+<p><img alt="Decryption step by step: full noise until the very last step, when the cat snaps back" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/decryption-steps.png" /></p>
+<p>That is not a bug, it is the goal. The image is only recognizable when the
+values <strong>and</strong> the positions are simultaneously correct. Decryption fixes those
+separately: un-diffusion restores the values, un-confusion restores the
+positions, and because confusion ran in every round, the pixels stay scrambled
+until the final un-confusion. There is one beautiful tell, though. The
+second-to-last step looks grayer and smoother than the others. At that moment
+the pixels are the cat's exact values, just shuffled into the wrong places, so
+the tile carries the cat's muted color palette and its entropy drops from 8.0
+back to 7.44. That step <em>is</em> the cat, spatially scrambled. The final step just
+puts every pixel back where it belongs.</p>
+<p>If you could see the cat slowly fading in across the steps, that would actually
+be bad news: it would mean structure was leaking out early. The fact that it
+snaps from noise to image in a single step is the visible signature of strong
+confusion and diffusion working together.</p>
+<h2>What I would do next</h2>
+<p>A few honest limitations and directions:</p>
+<ul>
+<li>These are learning primitives. They are useful for studying confusion and
+  diffusion behavior, not for protecting anything that matters.</li>
+<li>The <code>latin</code> arm is linear on purpose, and a real attacker would exploit that.
+  It earns its place as the baseline that the comparison beats.</li>
+<li>Natural next steps: a perceptual or latent-space stage (encrypting in the
+  latent space of an autoencoder), and a robustness battery (chosen-plaintext,
+  cropping, and noise tolerance) that reviewers always ask for.</li>
+</ul>
+<h2>Try it</h2>
+<p>The code, the metrics harness, and the Streamlit app are all on GitHub:
+<a href="https://github.com/rishika1099/Modular-Image-Encryption">Modular-Image-Encryption</a>.
+Upload your own image, pick a confusion and a diffusion module, set the number
+of rounds, and watch your picture turn into noise and back. The cat is just the
+default.</p>
+</body></html>
