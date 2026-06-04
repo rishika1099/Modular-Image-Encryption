@@ -1,5 +1,7 @@
 # Scrambling a Cat: A Tour of Modular Image Encryption
 
+*How a blurry cat helped me explore confusion, diffusion, entropy, and avalanche effects in image encryption.*
+
 I built a small image-encryption playground where you upload a picture, pick
 some building blocks, and watch the image dissolve into noise and come back
 again. My test image, for reasons that will become clear, is a blurry cat
@@ -7,10 +9,17 @@ glaring at an empty food bowl. By the end of this post you will understand
 exactly why that cat turns into static, why the static turns back into a cat,
 and which of the techniques involved is actually pulling its weight.
 
-This is a comparative framework, not a finished cipher. The point was to take a
-few different ideas for the two halves of a classic cipher, implement them so
-they all plug into the same pipeline, and measure them against each other on
-the same picture.
+Before we start, an important caveat: this is an educational framework for
+studying confusion and diffusion. It is not a production-ready cryptographic
+system, and it has not undergone formal cryptanalysis. The goal is comparison,
+not deployment.
+
+## Why I built this
+
+I originally built this project because most image-encryption papers compare
+algorithms only through tables of metrics. I wanted something more intuitive: a
+playground where I could swap components, watch every intermediate step, and see
+exactly which module was responsible for which security property.
 
 ## Why images need their own treatment
 
@@ -25,14 +34,12 @@ once:
 2. The **statistics**: the fact that some pixel values are far more common than
    others.
 
-Claude Shannon named the two tools for this in 1949: **confusion** and
-**diffusion**. Confusion hides the relationship between the key and the
-ciphertext. Diffusion spreads the influence of each input bit across many
-output bits. In image terms I think of them more concretely:
+Claude Shannon described two properties that strong ciphers need: **confusion**
+and **diffusion**. In image encryption, I find it helpful to think of them
+visually:
 
-- **Confusion** scrambles *where* pixels are. It permutes positions.
-- **Diffusion** changes *what* the pixel values are, and makes each output
-  depend on many inputs.
+- **Confusion**: scramble *where* pixels are.
+- **Diffusion**: scramble *what* pixel values are.
 
 The whole pipeline is just these two stages, applied in turn, repeated for a
 few rounds.
@@ -48,7 +55,16 @@ every time, for grayscale, color, and odd sizes.
 The interesting design choice is that confusion and diffusion are each a
 **pluggable slot**. I wrote two confusion modules and three diffusion modules,
 and any pairing works. That is what makes it a comparison rather than a single
-algorithm.
+algorithm. Here are the five building blocks at a glance before we dig into each
+one:
+
+| Category | Module | Idea |
+|----------|--------|------|
+| Confusion | `perm` | Full random pixel permutation |
+| Confusion | `spectral` | Graph-based block reordering |
+| Diffusion | `xor` | Random keystream XOR |
+| Diffusion | `latin` | Position-dependent modular shifts |
+| Diffusion | `inn` | Invertible nonlinear coupling network |
 
 ![Encryption step by step: the cat dissolves into noise across three rounds of confusion and diffusion](encryption-steps.png)
 
@@ -182,7 +198,7 @@ The avalanche from the `inn` coupling network is what carries those last two.
 If you swap `inn` for the linear `latin` module, the differential numbers
 degrade noticeably, which is the comparison the project was built to show.
 
-## The most satisfying part: watching it decrypt
+## The moment that surprised me
 
 The app shows every intermediate stage, and the decryption gallery taught me
 something I did not expect. None of the steps look even slightly like the cat
@@ -223,6 +239,8 @@ A few honest limitations and directions:
 
 The code, the metrics harness, and the Streamlit app are all on GitHub:
 [Modular-Image-Encryption](https://github.com/rishika1099/Modular-Image-Encryption).
-Upload your own image, pick a confusion and a diffusion module, set the number
-of rounds, and watch your picture turn into noise and back. The cat is just the
-default.
+
+The cat is just the default image. Any photo works. Pick a confusion module,
+pick a diffusion module, choose a few rounds, and watch how quickly recognizable
+structure disappears. Then reverse the process and see how much work it takes to
+turn pure noise back into a cat.

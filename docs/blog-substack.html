@@ -1,21 +1,27 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
-<title>Scrambling a Cat: Modular Image Encryption</title>
+<title>Scrambling a Cat: A Tour of Modular Image Encryption</title>
 <style>body{max-width:760px;margin:40px auto;font:17px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px;}
 img{max-width:100%;height:auto;}table{border-collapse:collapse;}th,td{border:1px solid #ccc;padding:6px 10px;}
-code{background:#f4f4f4;padding:1px 4px;border-radius:3px;}</style>
+code{background:#f4f4f4;padding:1px 4px;border-radius:3px;}h1+p em{color:#555;font-size:1.1em;}</style>
 </head><body>
 <h1>Scrambling a Cat: A Tour of Modular Image Encryption</h1>
+<p><em>How a blurry cat helped me explore confusion, diffusion, entropy, and avalanche effects in image encryption.</em></p>
 <p>I built a small image-encryption playground where you upload a picture, pick
 some building blocks, and watch the image dissolve into noise and come back
 again. My test image, for reasons that will become clear, is a blurry cat
 glaring at an empty food bowl. By the end of this post you will understand
 exactly why that cat turns into static, why the static turns back into a cat,
 and which of the techniques involved is actually pulling its weight.</p>
-<p>This is a comparative framework, not a finished cipher. The point was to take a
-few different ideas for the two halves of a classic cipher, implement them so
-they all plug into the same pipeline, and measure them against each other on
-the same picture.</p>
+<p>Before we start, an important caveat: this is an educational framework for
+studying confusion and diffusion. It is not a production-ready cryptographic
+system, and it has not undergone formal cryptanalysis. The goal is comparison,
+not deployment.</p>
+<h2>Why I built this</h2>
+<p>I originally built this project because most image-encryption papers compare
+algorithms only through tables of metrics. I wanted something more intuitive: a
+playground where I could swap components, watch every intermediate step, and see
+exactly which module was responsible for which security property.</p>
 <h2>Why images need their own treatment</h2>
 <p>If you encrypt a text file with a weak scheme, the damage is invisible to the
 naked eye. With images it is the opposite: a weak scheme leaves the picture
@@ -28,14 +34,12 @@ once:</p>
 <li>The <strong>statistics</strong>: the fact that some pixel values are far more common than
    others.</li>
 </ol>
-<p>Claude Shannon named the two tools for this in 1949: <strong>confusion</strong> and
-<strong>diffusion</strong>. Confusion hides the relationship between the key and the
-ciphertext. Diffusion spreads the influence of each input bit across many
-output bits. In image terms I think of them more concretely:</p>
+<p>Claude Shannon described two properties that strong ciphers need: <strong>confusion</strong>
+and <strong>diffusion</strong>. In image encryption, I find it helpful to think of them
+visually:</p>
 <ul>
-<li><strong>Confusion</strong> scrambles <em>where</em> pixels are. It permutes positions.</li>
-<li><strong>Diffusion</strong> changes <em>what</em> the pixel values are, and makes each output
-  depend on many inputs.</li>
+<li><strong>Confusion</strong>: scramble <em>where</em> pixels are.</li>
+<li><strong>Diffusion</strong>: scramble <em>what</em> pixel values are.</li>
 </ul>
 <p>The whole pipeline is just these two stages, applied in turn, repeated for a
 few rounds.</p>
@@ -48,7 +52,44 @@ every time, for grayscale, color, and odd sizes.</p>
 <p>The interesting design choice is that confusion and diffusion are each a
 <strong>pluggable slot</strong>. I wrote two confusion modules and three diffusion modules,
 and any pairing works. That is what makes it a comparison rather than a single
-algorithm.</p>
+algorithm. Here are the five building blocks at a glance before we dig into each
+one:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Module</th>
+<th>Idea</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Confusion</td>
+<td><code>perm</code></td>
+<td>Full random pixel permutation</td>
+</tr>
+<tr>
+<td>Confusion</td>
+<td><code>spectral</code></td>
+<td>Graph-based block reordering</td>
+</tr>
+<tr>
+<td>Diffusion</td>
+<td><code>xor</code></td>
+<td>Random keystream XOR</td>
+</tr>
+<tr>
+<td>Diffusion</td>
+<td><code>latin</code></td>
+<td>Position-dependent modular shifts</td>
+</tr>
+<tr>
+<td>Diffusion</td>
+<td><code>inn</code></td>
+<td>Invertible nonlinear coupling network</td>
+</tr>
+</tbody>
+</table>
 <p><img alt="Encryption step by step: the cat dissolves into noise across three rounds of confusion and diffusion" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/encryption-steps.png" /></p>
 <p>A note on keys before the modules: every stage derives its own subkey. A label
 like <code>inn3.2</code> (meaning the diffusion in round 3, coupling layer 2) is hashed
@@ -172,7 +213,7 @@ essentially nothing, and the differential numbers land right on their ideals.
 The avalanche from the <code>inn</code> coupling network is what carries those last two.
 If you swap <code>inn</code> for the linear <code>latin</code> module, the differential numbers
 degrade noticeably, which is the comparison the project was built to show.</p>
-<h2>The most satisfying part: watching it decrypt</h2>
+<h2>The moment that surprised me</h2>
 <p>The app shows every intermediate stage, and the decryption gallery taught me
 something I did not expect. None of the steps look even slightly like the cat
 until the very last one. It is full rainbow static, then full static, then
@@ -205,8 +246,9 @@ confusion and diffusion working together.</p>
 </ul>
 <h2>Try it</h2>
 <p>The code, the metrics harness, and the Streamlit app are all on GitHub:
-<a href="https://github.com/rishika1099/Modular-Image-Encryption">Modular-Image-Encryption</a>.
-Upload your own image, pick a confusion and a diffusion module, set the number
-of rounds, and watch your picture turn into noise and back. The cat is just the
-default.</p>
+<a href="https://github.com/rishika1099/Modular-Image-Encryption">Modular-Image-Encryption</a>.</p>
+<p>The cat is just the default image. Any photo works. Pick a confusion module,
+pick a diffusion module, choose a few rounds, and watch how quickly recognizable
+structure disappears. Then reverse the process and see how much work it takes to
+turn pure noise back into a cat.</p>
 </body></html>
