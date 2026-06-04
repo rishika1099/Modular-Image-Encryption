@@ -2,8 +2,7 @@
 <html><head><meta charset="utf-8">
 <title>Scrambling a Cat: A Tour of Modular Image Encryption</title>
 <style>body{max-width:760px;margin:40px auto;font:17px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px;}
-img{max-width:100%;height:auto;}table{border-collapse:collapse;}th,td{border:1px solid #ccc;padding:6px 10px;}
-code{background:#f4f4f4;padding:1px 4px;border-radius:3px;}h1+p em{color:#555;font-size:1.1em;}</style>
+img{max-width:100%;height:auto;}code{background:#f4f4f4;padding:1px 4px;border-radius:3px;}h1+p em{color:#555;font-size:1.1em;}</style>
 </head><body>
 <h1>Scrambling a Cat: A Tour of Modular Image Encryption</h1>
 <p><em>How a blurry cat helped me explore confusion, diffusion, entropy, and avalanche effects in image encryption.</em></p>
@@ -54,42 +53,7 @@ every time, for grayscale, color, and odd sizes.</p>
 and any pairing works. That is what makes it a comparison rather than a single
 algorithm. Here are the five building blocks at a glance before we dig into each
 one:</p>
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Module</th>
-<th>Idea</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Confusion</td>
-<td><code>perm</code></td>
-<td>Full random pixel permutation</td>
-</tr>
-<tr>
-<td>Confusion</td>
-<td><code>spectral</code></td>
-<td>Graph-based block reordering</td>
-</tr>
-<tr>
-<td>Diffusion</td>
-<td><code>xor</code></td>
-<td>Random keystream XOR</td>
-</tr>
-<tr>
-<td>Diffusion</td>
-<td><code>latin</code></td>
-<td>Position-dependent modular shifts</td>
-</tr>
-<tr>
-<td>Diffusion</td>
-<td><code>inn</code></td>
-<td>Invertible nonlinear coupling network</td>
-</tr>
-</tbody>
-</table>
+<p><img alt="Module overview: confusion and diffusion building blocks" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/modules-table.png" /></p>
 <p><img alt="Encryption step by step: the cat dissolves into noise across three rounds of confusion and diffusion" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/encryption-steps.png" /></p>
 <p>A note on keys before the modules: every stage derives its own subkey. A label
 like <code>inn3.2</code> (meaning the diffusion in round 3, coupling layer 2) is hashed
@@ -176,37 +140,7 @@ nudge to the input produces a totally different output, so an attacker cannot
 learn anything by feeding in near-identical images.</p>
 <h2>Results</h2>
 <p>Running <code>perm</code> confusion with <code>inn</code> diffusion for 3 rounds:</p>
-<table>
-<thead>
-<tr>
-<th>Metric</th>
-<th>Value</th>
-<th>Ideal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cipher entropy</td>
-<td>7.997</td>
-<td>8.0</td>
-</tr>
-<tr>
-<td>Adjacent-pixel correlation</td>
-<td>-0.0006</td>
-<td>about 0</td>
-</tr>
-<tr>
-<td>NPCR</td>
-<td>99.63%</td>
-<td>about 99.6</td>
-</tr>
-<tr>
-<td>UACI</td>
-<td>33.47%</td>
-<td>about 33.4</td>
-</tr>
-</tbody>
-</table>
+<p><img alt="Results: entropy, correlation, NPCR, UACI vs ideal" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/results-table.png" /></p>
 <p><img alt="Plaintext histogram is a lumpy hill at entropy 7.443; ciphertext histogram is flat at entropy 7.999" src="https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/histograms.png" /></p>
 <p>The cipher histogram goes flat, the correlation collapses from +0.82 to
 essentially nothing, and the differential numbers land right on their ideals.

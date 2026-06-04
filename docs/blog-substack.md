@@ -58,13 +58,7 @@ and any pairing works. That is what makes it a comparison rather than a single
 algorithm. Here are the five building blocks at a glance before we dig into each
 one:
 
-| Category | Module | Idea |
-|----------|--------|------|
-| Confusion | `perm` | Full random pixel permutation |
-| Confusion | `spectral` | Graph-based block reordering |
-| Diffusion | `xor` | Random keystream XOR |
-| Diffusion | `latin` | Position-dependent modular shifts |
-| Diffusion | `inn` | Invertible nonlinear coupling network |
+![Module overview: confusion and diffusion building blocks](https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/modules-table.png)
 
 ![Encryption step by step: the cat dissolves into noise across three rounds of confusion and diffusion](https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/encryption-steps.png)
 
@@ -173,12 +167,7 @@ learn anything by feeding in near-identical images.
 
 Running `perm` confusion with `inn` diffusion for 3 rounds:
 
-| Metric | Value | Ideal |
-|--------|-------|-------|
-| Cipher entropy | 7.997 | 8.0 |
-| Adjacent-pixel correlation | -0.0006 | about 0 |
-| NPCR | 99.63% | about 99.6 |
-| UACI | 33.47% | about 33.4 |
+![Results: entropy, correlation, NPCR, UACI vs ideal](https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/results-table.png)
 
 ![Plaintext histogram is a lumpy hill at entropy 7.443; ciphertext histogram is flat at entropy 7.999](https://raw.githubusercontent.com/rishika1099/Modular-Image-Encryption/main/docs/histograms.png)
 
